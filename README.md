@@ -27,3 +27,15 @@ project_root/
 ├── train.py           # train PyTorch models
 └── utils.py           # utility functions
 ```
+
+## Run 
+
+
+```shell
+# download dataset
+$ python3 data.py
+
+
+# sample command to train model
+$ python3 main.py --model resnet --batch-size 32 --lr 0.001 --num-epochs 10
+```

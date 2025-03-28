@@ -172,3 +172,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+notes.txt
+
+data/ISIC2018_Task3_Training_Input
+
