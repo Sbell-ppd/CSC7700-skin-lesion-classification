@@ -19,14 +19,16 @@ $ pip install -r requirements.txt
 
 ```
 project_root/
-├── data/              # dataset in standard image classification format
-├── models/            # trained model parameters
-├── data.py            # prepare data
-├── main.py            # functions to train&test
-├── model.py           # build models
-├── train.py           # train PyTorch models
-├── SkinDataset.py     # transform the images into tensors
-└── utils.py           # utility functions
+├── data/                               # dataset in standard image classification format
+├── models/                             # trained model parameters
+├── data_preprocessing.ipynb            # notebok for processing data
+├── download_data.py                    # script for downloading data
+├── exploratory-data-analysis.ipynb     # notebook for exploring data
+├── main.py                             # functions to train&test
+├── model.py                            # build models
+├── train.py                            # train PyTorch models
+├── SkinDataset.py                      # transform the images into tensors
+└── utils.py                            # utility functions
 ```
 
 ## Run 
@@ -34,7 +36,7 @@ project_root/
 
 ```shell
 # download dataset
-$ python3 data.py
+$ python3 download_data.py
 
 # play with notebooks
 $ jupyter notebook

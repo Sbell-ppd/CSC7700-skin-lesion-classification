@@ -164,15 +164,15 @@ def create_dataloaders(data_path, image_path, batch_size=32, test_size=0.2, val_
     
     # Create DataLoaders
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=os.cpu_count(), pin_memory=True
     )
     
     val_loader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True
+        val_dataset, batch_size=batch_size, shuffle=False, num_workers=os.cpu_count(), pin_memory=True
     )
     
     test_loader = DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=os.cpu_count(), pin_memory=True
     )
     
     print(f"Created dataloaders with:")
@@ -187,6 +187,7 @@ if __name__ == "__main__":
     data_path = Path("data/")
     image_path = data_path / "ISIC2018_Task3_Training_Input"
     
+    # turn dataset into dataloaders, processes images in batches
     train_loader, val_loader, test_loader, class_weights = create_dataloaders(
         data_path, image_path, batch_size=32
     )
@@ -199,4 +200,3 @@ if __name__ == "__main__":
 
     # Use class weights with loss function for handling imbalance
     # criterion = torch.nn.CrossEntropyLoss(weight=class_weights.to(device))
-    
