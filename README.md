@@ -8,8 +8,8 @@ $ git clone https://github.com/Fakorede/CSC-7333-Skin-Cancer-Classification.git
 $ cd CSC-7333-Skin-Cancer-Classification
 
 # create environment
-$ conda create -n cnn-env python=3.10 -y
-$ conda activate cnn-env
+$ conda create -n skin-env python=3.10 -y
+$ conda activate skin-env
 
 # install dependencies
 $ pip install -r requirements.txt
@@ -25,6 +25,7 @@ project_root/
 ├── main.py            # functions to train&test
 ├── model.py           # build models
 ├── train.py           # train PyTorch models
+├── SkinDataset.py     # transform the images into tensors
 └── utils.py           # utility functions
 ```
 
