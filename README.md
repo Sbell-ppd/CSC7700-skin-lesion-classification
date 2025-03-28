@@ -8,7 +8,7 @@ $ git clone https://github.com/Fakorede/CSC-7333-Skin-Cancer-Classification.git
 $ cd CSC-7333-Skin-Cancer-Classification
 
 # create environment
-$ conda create -n cnn-env python=3.12 -y
+$ conda create -n cnn-env python=3.10 -y
 $ conda activate cnn-env
 
 # install dependencies
@@ -35,6 +35,8 @@ project_root/
 # download dataset
 $ python3 data.py
 
+# play with notebooks
+$ jupyter notebook
 
 # sample command to train model
 $ python3 main.py --model resnet --batch-size 32 --lr 0.001 --num-epochs 10
