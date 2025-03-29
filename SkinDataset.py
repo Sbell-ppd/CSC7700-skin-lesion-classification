@@ -7,6 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
 from sklearn.model_selection import train_test_split
+from utils import get_device, visualize_dataset_samples
 
 class SkinDataset(Dataset):
     """
@@ -171,11 +172,12 @@ def create_dataloaders(data_path, image_path, batch_size=32, test_size=0.2, val_
         weight = total_samples / (len(label_mapping) * label_counts[dx])
         class_weights.append(weight)
     
+    device = get_device()
     # Normalize class weights to prevent extreme values - particularly in classification tasks, 
     # class weights are used to handle imbalanced datasets. If some classes have significantly 
     # more samples than others, the model may become biased toward the majority classes. Class weights 
     # assign higher importance to underrepresented classes during training, helping the model learn more balanced decision boundaries.
-    class_weights = torch.FloatTensor(class_weights)
+    class_weights = torch.FloatTensor(class_weights).to(device)
     
     # Create DataLoaders
     train_loader = DataLoader(
@@ -209,3 +211,5 @@ if __name__ == "__main__":
 
     # Use class weights with loss function for adjusting the loss calculation to account for class imbalance
     # loss_fn = torch.nn.CrossEntropyLoss(weight=class_weights.to(device))
+
+    visualize_dataset_samples(train_loader.dataset, num_samples=10)
