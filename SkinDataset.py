@@ -34,15 +34,20 @@ class SkinDataset(Dataset):
             'vasc': 6    # Vascular Lesions
         }
         
-        # Verify images exist
-        self.valid_image_ids = []
-        for idx, row in self.metadata_df.iterrows():
+        # Filter out images that don't exist
+        valid_rows = []
+        for _, row in self.metadata_df.iterrows():
             image_id = row['image_id']
             if self._find_image_path(image_id) is not None:
-                self.valid_image_ids.append(idx)
+                valid_rows.append(row)
         
-        # Filter metadata to only include images that exist
-        self.metadata_df = self.metadata_df.iloc[self.valid_image_ids]
+        # Create a new DataFrame with only valid images
+        if valid_rows:
+            self.metadata_df = pd.DataFrame(valid_rows)
+        else:
+            print("Warning: No valid images found!")
+            # Create an empty DataFrame with the same columns
+            self.metadata_df = pd.DataFrame(columns=self.metadata_df.columns)
 
     def _find_image_path(self, image_id):
         """Find the full path to an image based on its ID"""
@@ -145,6 +150,8 @@ def create_dataloaders(data_path, image_path, batch_size=32, test_size=0.2, val_
     train_dataset = SkinDataset(train_df, image_path, transform=train_transform)
     val_dataset = SkinDataset(val_df, image_path, transform=val_test_transform)
     test_dataset = SkinDataset(test_df, image_path, transform=val_test_transform)
+
+    print(f"Created datasets for train, validation, and test sets.")
     
     # Calculate class weights for handling class imbalance
     label_counts = train_df['dx'].value_counts()
@@ -154,12 +161,20 @@ def create_dataloaders(data_path, image_path, batch_size=32, test_size=0.2, val_
     label_mapping = {
         'akiec': 0, 'bcc': 1, 'bkl': 2, 'df': 3, 'mel': 4, 'nv': 5, 'vasc': 6
     }
+
+    print("Label counts in training set:")
+    for dx, count in label_counts.items():
+        print(f"  {dx}: {count}")
     
     # Calculate weights
     for dx in sorted(label_mapping, key=label_mapping.get):
         weight = total_samples / (len(label_mapping) * label_counts[dx])
         class_weights.append(weight)
     
+    # Normalize class weights to prevent extreme values - particularly in classification tasks, 
+    # class weights are used to handle imbalanced datasets. If some classes have significantly 
+    # more samples than others, the model may become biased toward the majority classes. Class weights 
+    # assign higher importance to underrepresented classes during training, helping the model learn more balanced decision boundaries.
     class_weights = torch.FloatTensor(class_weights)
     
     # Create DataLoaders
@@ -175,12 +190,6 @@ def create_dataloaders(data_path, image_path, batch_size=32, test_size=0.2, val_
         test_dataset, batch_size=batch_size, shuffle=False, num_workers=os.cpu_count(), pin_memory=True
     )
     
-    print(f"Created dataloaders with:")
-    print(f"  Training samples: {len(train_dataset)}")
-    print(f"  Validation samples: {len(val_dataset)}")
-    print(f"  Testing samples: {len(test_dataset)}")
-    print(f"  Class weights: {class_weights}")
-    
     return train_loader, val_loader, test_loader, class_weights
 
 if __name__ == "__main__":
@@ -194,9 +203,9 @@ if __name__ == "__main__":
     
     # Show a sample batch
     dataiter = iter(train_loader)
-    images, labels = next(dataiter)
-    print(f"Batch shape: {images.shape}")
-    print(f"Labels shape: {labels.shape}")
+    image, label = next(dataiter)
+    print(f"Batch shape: {image.shape}") # [batch_size, color_channels, height, width]
+    print(f"Labels: {label}") # Display the labels for the first batch
 
-    # Use class weights with loss function for handling imbalance
-    # criterion = torch.nn.CrossEntropyLoss(weight=class_weights.to(device))
+    # Use class weights with loss function for adjusting the loss calculation to account for class imbalance
+    # loss_fn = torch.nn.CrossEntropyLoss(weight=class_weights.to(device))
