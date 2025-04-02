@@ -38,7 +38,11 @@ def visualize_dataset_samples(dataset, num_samples=10, rows=2, cols=5, figsize=(
         temp_dataset = type(dataset)(
             dataset.metadata_df, 
             dataset.image_dir, 
-            transform=transforms.Compose([transforms.Resize((64, 64)), transforms.ToTensor()])
+            transform=transforms.Compose([
+                transforms.Resize((64, 64)), 
+                # transforms.TrivialAugmentWide(num_magnitude_bins=31), # Uncomment if you want to add trivial augmentations
+                transforms.ToTensor()
+            ])
         )
         vis_dataset = temp_dataset
     else:
