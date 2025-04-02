@@ -88,7 +88,7 @@ class SkinDataset(Dataset):
         
         return image, label
 
-def create_dataloaders(data_path, image_path, batch_size=32, test_size=0.2, val_size=0.1, random_state=42):
+def create_dataloaders(data_path, image_path, batch_size=32, test_size=0.2, val_size=0.1, random_state=42, num_workers=4):
     """
     Create PyTorch DataLoaders for training, validation, and testing.
     
@@ -181,16 +181,22 @@ def create_dataloaders(data_path, image_path, batch_size=32, test_size=0.2, val_
     
     # Create DataLoaders
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=os.cpu_count(), pin_memory=True
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True
     )
     
     val_loader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=os.cpu_count(), pin_memory=True
+        val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True
     )
     
     test_loader = DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False, num_workers=os.cpu_count(), pin_memory=True
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True
     )
+
+    print(f"Created dataloaders with:")
+    print(f"  Training samples: {len(train_dataset)}")
+    print(f"  Validation samples: {len(val_dataset)}")
+    print(f"  Testing samples: {len(test_dataset)}")
+    print(f"  Class weights: {class_weights}")
     
     return train_loader, val_loader, test_loader, class_weights
 
@@ -212,4 +218,4 @@ if __name__ == "__main__":
     # Use class weights with loss function for adjusting the loss calculation to account for class imbalance
     # loss_fn = torch.nn.CrossEntropyLoss(weight=class_weights.to(device))
 
-    visualize_dataset_samples(train_loader.dataset, num_samples=10)
+    # visualize_dataset_samples(train_loader.dataset, num_samples=10)
