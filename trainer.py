@@ -23,7 +23,6 @@ class LesionClassifier:
         
         Args:
             model: PyTorch model
-            device: Device to use (cuda or cpu)
             class_names: List of class names
         """
         self.model = model

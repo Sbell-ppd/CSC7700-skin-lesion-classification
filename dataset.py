@@ -7,7 +7,9 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
 from sklearn.model_selection import train_test_split
-from utils import get_device, visualize_dataset_samples
+import matplotlib.pyplot as plt
+import random
+from utils import get_device
 
 class SkinDataset(Dataset):
     """
@@ -200,6 +202,300 @@ def create_dataloaders(data_path, image_path, batch_size=32, test_size=0.2, val_
     
     return train_loader, val_loader, test_loader, class_weights
 
+
+def visualize_dataset_samples(dataset, num_samples=10, rows=2, cols=5, figsize=(15, 8), 
+                              with_transforms=False, random_seed=None):
+    """
+    Visualize random samples from a PyTorch dataset
+    
+    Args:
+        dataset: PyTorch Dataset object
+        num_samples: Number of samples to display
+        rows: Number of rows in the grid
+        cols: Number of columns in the grid
+        figsize: Figure size (width, height) in inches
+        with_transforms: If True, will use the dataset's transforms. If False, will show original images
+        random_seed: Random seed for reproducibility
+    """
+    if random_seed is not None:
+        random.seed(random_seed)
+        np.random.seed(random_seed)
+        torch.manual_seed(random_seed)
+    
+    # Create a temporary dataset with no transforms if with_transforms is False
+    if not with_transforms:
+        temp_dataset = type(dataset)(
+            dataset.metadata_df, 
+            dataset.image_dir, 
+            transform=transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
+        )
+        vis_dataset = temp_dataset
+    else:
+        vis_dataset = dataset
+    
+    # Adjust number of samples if needed
+    num_samples = min(num_samples, len(vis_dataset))
+    
+    # Get the diagnosis mapping (reverse it for display)
+    reverse_diagnosis_mapping = {v: k for k, v in dataset.diagnosis_mapping.items()}
+    
+    # Map diagnosis codes to full names for better readability
+    diagnosis_fullnames = {
+        'akiec': 'Actinic Keratoses',
+        'bcc': 'Basal Cell Carcinoma',
+        'bkl': 'Benign Keratosis',
+        'df': 'Dermatofibroma',
+        'mel': 'Melanoma',
+        'nv': 'Melanocytic Nevi',
+        'vasc': 'Vascular Lesion'
+    }
+    
+    # Generate random indices
+    indices = random.sample(range(len(vis_dataset)), num_samples)
+    
+    # Create figure
+    fig, axes = plt.subplots(rows, cols, figsize=figsize)
+    axes = axes.flatten()
+    
+    # Function to denormalize images if needed
+    def denormalize(tensor):
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+        return tensor * std + mean
+    
+    # Display each image
+    for i, idx in enumerate(indices):
+        if i >= len(axes):  # Ensure we don't exceed the grid size
+            break
+            
+        # Get image and label
+        image, label = vis_dataset[idx]
+        
+        # Denormalize if the image is a tensor and has values below 1.0
+        if isinstance(image, torch.Tensor):
+            if image.max() <= 1.0:
+                if image.min() < 0:  # Check if image is normalized
+                    image = denormalize(image)
+            # Convert tensor to numpy for display
+            image = image.permute(1, 2, 0).numpy()
+            # Clip values to valid range
+            image = np.clip(image, 0, 1)
+        
+        # Get the diagnosis code
+        diagnosis_code = reverse_diagnosis_mapping[label]
+        # Get the full diagnosis name
+        diagnosis_name = diagnosis_fullnames.get(diagnosis_code, diagnosis_code)
+        
+        # Display the image
+        axes[i].imshow(image)
+        axes[i].set_title(f"{diagnosis_name} ({diagnosis_code})", fontsize=10)
+        axes[i].axis('off')
+    
+    # Remove any unused subplots
+    for i in range(num_samples, len(axes)):
+        fig.delaxes(axes[i])
+    
+    plt.tight_layout()
+    plt.show()
+    
+    return fig
+
+
+def visualize_batch(dataloader, batch_idx=0, max_images=20, figsize=(15, 8), denormalize=True):
+    """
+    Visualize a batch of images from a DataLoader
+    
+    Args:
+        dataloader: PyTorch DataLoader
+        batch_idx: Which batch to visualize
+        max_images: Maximum number of images to display
+        figsize: Figure size (width, height) in inches
+        denormalize: Whether to denormalize images (assuming ImageNet normalization)
+    """
+    # Get the first batch
+    dataiter = iter(dataloader)
+    for _ in range(batch_idx + 1):
+        try:
+            images, labels = next(dataiter)
+        except StopIteration:
+            print(f"Error: Dataloader only has {_} batches, requested batch {batch_idx}")
+            return None
+    
+    # Get the dataset from the dataloader
+    dataset = dataloader.dataset
+    
+    # Get the diagnosis mapping (reverse it for display)
+    reverse_diagnosis_mapping = {v: k for k, v in dataset.diagnosis_mapping.items()}
+    
+    # Map diagnosis codes to full names for better readability
+    diagnosis_fullnames = {
+        'akiec': 'Actinic Keratoses',
+        'bcc': 'Basal Cell Carcinoma',
+        'bkl': 'Benign Keratosis',
+        'df': 'Dermatofibroma',
+        'mel': 'Melanoma',
+        'nv': 'Melanocytic Nevi',
+        'vasc': 'Vascular Lesion'
+    }
+    
+    # Determine grid dimensions
+    num_images = min(len(images), max_images)
+    cols = 5
+    rows = (num_images + cols - 1) // cols  # Ceiling division
+    
+    # Create figure
+    fig, axes = plt.subplots(rows, cols, figsize=figsize)
+    if rows == 1 and cols == 1:
+        axes = np.array([axes])
+    axes = axes.flatten()
+    
+    # Function to denormalize images
+    def denorm(tensor):
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+        return tensor * std + mean
+    
+    # Display each image
+    for i in range(num_images):
+        # Get image and label
+        image = images[i].cpu()
+        label = labels[i].item()
+        
+        # Denormalize if requested
+        if denormalize:
+            image = denorm(image)
+        
+        # Convert to numpy
+        image = image.permute(1, 2, 0).numpy()
+        image = np.clip(image, 0, 1)
+        
+        # Get the diagnosis code
+        diagnosis_code = reverse_diagnosis_mapping[label]
+        # Get the full diagnosis name
+        diagnosis_name = diagnosis_fullnames.get(diagnosis_code, diagnosis_code)
+        
+        # Display the image
+        axes[i].imshow(image)
+        axes[i].set_title(f"{diagnosis_name} ({diagnosis_code})", fontsize=10)
+        axes[i].axis('off')
+    
+    # Remove any unused subplots
+    for i in range(num_images, len(axes)):
+        fig.delaxes(axes[i])
+    
+    plt.tight_layout()
+    plt.show()
+    
+    return fig
+
+
+def display_dataset_stats(train_dataset, val_dataset=None, test_dataset=None):
+    """
+    Display statistics about the datasets
+    
+    Args:
+        train_dataset: Training dataset
+        val_dataset: Validation dataset (optional)
+        test_dataset: Test dataset (optional)
+    """
+    datasets = {
+        'Training': train_dataset,
+        'Validation': val_dataset,
+        'Testing': test_dataset
+    }
+    
+    # Map diagnosis codes to full names for better readability
+    diagnosis_fullnames = {
+        'akiec': 'Actinic Keratoses',
+        'bcc': 'Basal Cell Carcinoma',
+        'bkl': 'Benign Keratosis',
+        'df': 'Dermatofibroma',
+        'mel': 'Melanoma',
+        'nv': 'Melanocytic Nevi',
+        'vasc': 'Vascular Lesion'
+    }
+    
+    print("Dataset Statistics:")
+    print("=" * 50)
+    
+    # Get the reverse mapping from numerical to string labels
+    reverse_mapping = {v: k for k, v in train_dataset.diagnosis_mapping.items()}
+
+    # Dictionary to store counts for plotting
+    all_counts = {}
+    
+    for name, dataset in datasets.items():
+        if dataset is None:
+            continue
+            
+        print(f"\n{name} Set:")
+        print(f"  Total samples: {len(dataset)}")
+        
+        # Count labels
+        label_counts = {}
+        for i in range(len(dataset)):
+            _, label = dataset[i]
+            if isinstance(label, torch.Tensor):
+                label = label.item()
+            label_str = reverse_mapping[label]
+            label_counts[label_str] = label_counts.get(label_str, 0) + 1
+        
+        # Store counts for this dataset
+        all_counts[name] = label_counts
+
+        # Print label distribution
+        print(f"  Class distribution:")
+        for label, count in sorted(label_counts.items()):
+            percentage = (count / len(dataset)) * 100
+            full_name = diagnosis_fullnames.get(label, label)
+            print(f"    - {full_name} ({label}): {count} samples ({percentage:.2f}%)")
+    
+    print("\n" + "=" * 50)
+
+    # Create visualizations of the class distribution
+    if train_dataset is not None:
+        plt.figure(figsize=(14, 6))
+        
+        # Get all unique labels across all datasets
+        all_labels = sorted(set().union(*[counts.keys() for counts in all_counts.values()]))
+        
+        # Prepare data for plotting
+        x = np.arange(len(all_labels))
+        width = 0.8 / len(all_counts)  # Width of bars
+        
+        # Plot bars for each dataset
+        for i, (name, counts) in enumerate(all_counts.items()):
+            # Get counts for each label (0 if not present)
+            dataset_counts = [counts.get(label, 0) for label in all_labels]
+            plt.bar(x + i*width - width*len(all_counts)/2 + width/2, dataset_counts, 
+                    width=width, label=name)
+        
+        # Add labels and title
+        plt.xlabel('Diagnosis')
+        plt.ylabel('Number of Samples')
+        plt.title('Class Distribution Across Datasets')
+        plt.xticks(x, [f"{diagnosis_fullnames.get(label, label)}\n({label})" for label in all_labels], 
+                  rotation=45, ha='right')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+        
+        # Create pie chart for training dataset
+        plt.figure(figsize=(10, 10))
+        train_counts = all_counts['Training']
+        labels = [f"{diagnosis_fullnames.get(label, label)} ({label}): {count}" 
+                 for label, count in sorted(train_counts.items())]
+        counts = [count for _, count in sorted(train_counts.items())]
+        
+        plt.pie(counts, labels=labels, autopct='%1.1f%%', startangle=90, 
+                colors=plt.cm.tab10.colors, shadow=True)
+        plt.axis('equal')
+        plt.title('Training Set Class Distribution')
+        plt.tight_layout()
+        plt.show()
+    
+    return all_counts
+
 if __name__ == "__main__":
     data_path = Path("data/")
     image_path = data_path / "ISIC2018_Task3_Training_Input"
@@ -219,3 +515,7 @@ if __name__ == "__main__":
     # loss_fn = torch.nn.CrossEntropyLoss(weight=class_weights.to(device))
 
     # visualize_dataset_samples(train_loader.dataset, num_samples=10)
+
+
+
+

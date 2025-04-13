@@ -49,6 +49,8 @@ $ jupyter notebook
 # training and evaluation
 $ python main.py --data_path /path/to/data --image_path /path/to/images --backbone resnet50 --epochs 25 --batch_size 32 --experiment_name ham10000_exp1
 
+$ python main.py --data_path="data" --image_path="data/ISIC2018_Task3_Training_Input"
+
 # visualization Only
 $ python main.py --data_path /path/to/data --image_path /path/to/images --visualize --stats
 ```

@@ -7,6 +7,7 @@ from pathlib import Path
 from model import create_model
 from trainer import LesionClassifier
 from visualization import generate_classification_report, plot_confusion_matrix, plot_roc_curves
+from utils import get_device
 
 
 def train_and_evaluate(train_loader, val_loader, test_loader, class_weights=None, 
@@ -27,7 +28,7 @@ def train_and_evaluate(train_loader, val_loader, test_loader, class_weights=None
     Returns:
         tuple: (model, trainer, accuracy)
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     print(f"Using device: {device}")
     
     # Build model
@@ -40,7 +41,7 @@ def train_and_evaluate(train_loader, val_loader, test_loader, class_weights=None
     ]
     
     # Create trainer
-    trainer = LesionClassifier(model, device, class_names)
+    trainer = LesionClassifier(model, class_names)
     
     # Define loss function with class weights if provided
     if class_weights is not None:
@@ -115,13 +116,11 @@ def predict_image(model_path, image_tensor, backbone='resnet50'):
     Returns:
         tuple: (predicted_class_name, predicted_class_code, probabilities)
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
     # Create model with same architecture
     model = create_model(num_classes=7, backbone=backbone)
     
     # Load trained model
-    classifier = LesionClassifier.load_model(model_path, model, device)
+    classifier = LesionClassifier.load_model(model_path, model)
     
     # Make prediction
     class_idx, probs = classifier.predict(image_tensor)
