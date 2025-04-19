@@ -176,4 +176,4 @@ cython_debug/
 notes.txt
 charts/
 data/ISIC2018_Task3_Training_Input
-
+checkpoints/

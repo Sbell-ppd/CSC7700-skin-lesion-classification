@@ -8,9 +8,9 @@ import seaborn as sns
 from tqdm import tqdm
 import time
 import copy
-import os
 from pathlib import Path
 from utils import get_device
+from visualization import plot_training_curves
 
 
 class LesionClassifier:
@@ -73,6 +73,10 @@ class LesionClassifier:
         # Create directory for checkpoints if it doesn't exist
         checkpoints_dir = Path(f"checkpoints/{experiment_name}")
         checkpoints_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create results directory if it doesn't exist
+        results_dir = Path(f"results/{experiment_name}")
+        results_dir.mkdir(parents=True, exist_ok=True)
         
         best_model_wts = copy.deepcopy(self.model.state_dict())
         best_acc = 0.0
@@ -190,7 +194,13 @@ class LesionClassifier:
         self.best_acc = best_acc
         
         # Plot training curves
-        self.plot_training_curves(checkpoints_dir / "training_curves.png")
+        plot_training_curves(
+            self.train_losses, 
+            self.val_losses, 
+            self.train_accs, 
+            self.val_accs, 
+            output_path=results_dir / "training_curves.png"
+        )
         
         return self.model
     
