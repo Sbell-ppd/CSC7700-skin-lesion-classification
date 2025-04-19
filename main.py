@@ -3,7 +3,7 @@ from pathlib import Path
 import torch
 
 from dataset import create_dataloaders, visualize_dataset_samples, visualize_batch, display_dataset_stats
-from experiment import train_and_evaluate, predict_image
+from experiment import train_and_evaluate, train_custom_model, predict_image
 
 
 def main():
@@ -15,6 +15,14 @@ def main():
     # Data paths
     parser.add_argument('--data_path', type=str, required=True, help='Path to the data directory')
     parser.add_argument('--image_path', type=str, required=True, help='Path to the image directory')
+
+    # Model parameters (for custom CNN)
+    parser.add_argument('--model_type', type=str, default='standard', choices=['standard', 'residual'],
+                       help='Type of custom CNN architecture')
+    parser.add_argument('--initial_filters', type=int, default=32, 
+                       help='Number of filters in first conv layer')
+    parser.add_argument('--dropout_rate', type=float, default=0.3,
+                       help='Dropout rate for regularization')
     
     # Training parameters
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
@@ -60,16 +68,30 @@ def main():
         )
     
     # Train and evaluate model
-    model, trainer, accuracy = train_and_evaluate(
-        train_loader=train_loader,
-        val_loader=val_loader,
-        test_loader=test_loader,
-        class_weights=class_weights,
-        backbone=args.backbone,
-        lr=args.lr,
-        epochs=args.epochs,
-        experiment_name=args.experiment_name
-    )
+    if args.model_type == 'standard' or args.model_type == 'residual':
+        print("Training custom CNN model...")
+        model, accuracy, history = train_custom_model(
+            data_path=args.data_path,
+            image_path=args.image_path,
+            model_type=args.model_type,
+            initial_filters=args.initial_filters,
+            dropout_rate=args.dropout_rate,
+            batch_size=args.batch_size,
+            num_epochs=args.epochs,
+            learning_rate=args.lr,
+            experiment_name=args.experiment_name
+        )
+    else:
+        model, trainer, accuracy = train_and_evaluate(
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
+            class_weights=class_weights,
+            backbone=args.backbone,
+            lr=args.lr,
+            epochs=args.epochs,
+            experiment_name=args.experiment_name
+        )
     
     print(f"Final test accuracy: {accuracy:.4f}")
     print(f"Model and results saved to 'results/{args.experiment_name}'")
