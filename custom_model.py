@@ -3,99 +3,83 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class ConvBlock(nn.Module):
+class TinyVGG(nn.Module):
     """
-    A convolutional block with batch normalization and optional dropout
-    """
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1, 
-                 use_batchnorm=True, dropout_rate=0.0):
-        super(ConvBlock, self).__init__()
-        
-        layers = []
-        # Conv layer
-        layers.append(
-            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, 
-                      stride=stride, padding=padding, bias=not use_batchnorm)
-        )
-        
-        # Batch normalization
-        if use_batchnorm:
-            layers.append(nn.BatchNorm2d(out_channels))
-        
-        # Activation
-        layers.append(nn.ReLU(inplace=True))
-        
-        # Dropout
-        if dropout_rate > 0:
-            layers.append(nn.Dropout2d(dropout_rate))
-        
-        self.block = nn.Sequential(*layers)
+    TinyVGG architecture for skin lesion classification.
     
-    def forward(self, x):
-        return self.block(x)
-
-
-class CustomCNN(nn.Module):
+    A simplified VGG-style network with fewer parameters, suitable for smaller datasets.
+    The architecture consists of multiple blocks of (Conv -> ReLU -> Conv -> ReLU -> MaxPool)
+    followed by fully connected layers.
     """
-    Custom CNN architecture for skin lesion classification
-    """
-    def __init__(self, num_classes=7, input_channels=3, initial_filters=32, 
-                 dropout_rate=0.3, use_batchnorm=True):
-        super(CustomCNN, self).__init__()
+    def __init__(self, num_classes=7, input_channels=3, dropout_rate=0.5):
+        super(TinyVGG, self).__init__()
         
         self.num_classes = num_classes
         self.dropout_rate = dropout_rate
         
-        # Entry block
-        self.entry_block = nn.Sequential(
-            ConvBlock(input_channels, initial_filters, kernel_size=7, stride=2, padding=3, 
-                      use_batchnorm=use_batchnorm, dropout_rate=dropout_rate/2),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        )
-        
-        # First stage - learning lower level features
-        self.stage1 = nn.Sequential(
-            ConvBlock(initial_filters, initial_filters, use_batchnorm=use_batchnorm, dropout_rate=0),
-            ConvBlock(initial_filters, initial_filters*2, use_batchnorm=use_batchnorm, dropout_rate=dropout_rate),
+        # Block 1: Input -> 64 features
+        # Input: 224x224x3 -> Output: 112x112x64
+        self.block1 = nn.Sequential(
+            nn.Conv2d(input_channels, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=False),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
         
-        # Second stage - learning mid-level features
-        self.stage2 = nn.Sequential(
-            ConvBlock(initial_filters*2, initial_filters*2, use_batchnorm=use_batchnorm, dropout_rate=0),
-            ConvBlock(initial_filters*2, initial_filters*4, use_batchnorm=use_batchnorm, dropout_rate=dropout_rate),
+        # Block 2: 64 -> 128 features
+        # Input: 112x112x64 -> Output: 56x56x128
+        self.block2 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=False),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
         
-        # Third stage - learning higher level features
-        self.stage3 = nn.Sequential(
-            ConvBlock(initial_filters*4, initial_filters*4, use_batchnorm=use_batchnorm, dropout_rate=0),
-            ConvBlock(initial_filters*4, initial_filters*8, use_batchnorm=use_batchnorm, dropout_rate=dropout_rate),
+        # Block 3: 128 -> 256 features
+        # Input: 56x56x128 -> Output: 28x28x256
+        self.block3 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=False),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
         
-        # Fourth stage - learning complex features
-        self.stage4 = nn.Sequential(
-            ConvBlock(initial_filters*8, initial_filters*8, use_batchnorm=use_batchnorm, dropout_rate=0),
-            ConvBlock(initial_filters*8, initial_filters*16, use_batchnorm=use_batchnorm, dropout_rate=dropout_rate),
+        # Block 4: 256 -> 512 features
+        # Input: 28x28x256 -> Output: 14x14x512
+        self.block4 = nn.Sequential(
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=False),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
         
-        # Global Average Pooling
+        # Global average pooling
         self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
         
-        # Fully connected layer for classification
+        # Fully connected layers
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate),
-            nn.Linear(initial_filters*16, 512),
-            nn.ReLU(inplace=True),
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=False),
             nn.Dropout(dropout_rate),
-            nn.Linear(512, num_classes)
+            nn.Linear(256, num_classes)
         )
         
         # Initialize weights
         self._initialize_weights()
-        
+    
     def _initialize_weights(self):
         """Initialize model weights using Kaiming initialization"""
         for m in self.modules():
@@ -111,12 +95,17 @@ class CustomCNN(nn.Module):
                 nn.init.constant_(m.bias, 0)
     
     def forward(self, x):
-        # Feature extraction
-        x = self.entry_block(x)
-        x = self.stage1(x)
-        x = self.stage2(x)
-        x = self.stage3(x)
-        x = self.stage4(x)
+        # Block 1
+        x = self.block1(x)
+        
+        # Block 2
+        x = self.block2(x)
+        
+        # Block 3
+        x = self.block3(x)
+        
+        # Block 4
+        x = self.block4(x)
         
         # Global pooling
         x = self.global_pool(x)
@@ -128,71 +117,82 @@ class CustomCNN(nn.Module):
         return x
 
 
-class CustomCNNWithResiduals(nn.Module):
+class TinyVGGWithAttention(nn.Module):
     """
-    Custom CNN architecture with residual connections for skin lesion classification
+    TinyVGG architecture with attention mechanism for skin lesion classification.
+    
+    This variant includes a spatial attention mechanism after each block to help
+    the model focus on relevant regions of the image.
     """
-    def __init__(self, num_classes=7, input_channels=3, initial_filters=32, 
-                 dropout_rate=0.3, use_batchnorm=True):
-        super(CustomCNNWithResiduals, self).__init__()
+    def __init__(self, num_classes=7, input_channels=3, dropout_rate=0.5):
+        super(TinyVGGWithAttention, self).__init__()
         
         self.num_classes = num_classes
         self.dropout_rate = dropout_rate
         
-        # Entry block
-        self.conv1 = ConvBlock(input_channels, initial_filters, kernel_size=7, stride=2, padding=3, 
-                              use_batchnorm=use_batchnorm, dropout_rate=0)
-        self.pool1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        
-        # First residual block
-        self.res1_conv1 = ConvBlock(initial_filters, initial_filters, use_batchnorm=use_batchnorm, dropout_rate=0)
-        self.res1_conv2 = ConvBlock(initial_filters, initial_filters, use_batchnorm=use_batchnorm, dropout_rate=0)
-        
-        # Second residual block with down-sampling
-        self.res2_downsample = nn.Sequential(
-            nn.Conv2d(initial_filters, initial_filters*2, kernel_size=1, stride=2, bias=False),
-            nn.BatchNorm2d(initial_filters*2)
+        # Block 1: Input -> 64 features
+        self.block1_conv = nn.Sequential(
+            nn.Conv2d(input_channels, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=False)
         )
-        self.res2_conv1 = ConvBlock(initial_filters, initial_filters*2, stride=2, 
-                                    use_batchnorm=use_batchnorm, dropout_rate=0)
-        self.res2_conv2 = ConvBlock(initial_filters*2, initial_filters*2, 
-                                    use_batchnorm=use_batchnorm, dropout_rate=dropout_rate)
+        self.block1_attention = SpatialAttention()
+        self.block1_pool = nn.MaxPool2d(kernel_size=2, stride=2)
         
-        # Third residual block with down-sampling
-        self.res3_downsample = nn.Sequential(
-            nn.Conv2d(initial_filters*2, initial_filters*4, kernel_size=1, stride=2, bias=False),
-            nn.BatchNorm2d(initial_filters*4)
+        # Block 2: 64 -> 128 features
+        self.block2_conv = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=False)
         )
-        self.res3_conv1 = ConvBlock(initial_filters*2, initial_filters*4, stride=2, 
-                                    use_batchnorm=use_batchnorm, dropout_rate=0)
-        self.res3_conv2 = ConvBlock(initial_filters*4, initial_filters*4, 
-                                    use_batchnorm=use_batchnorm, dropout_rate=dropout_rate)
+        self.block2_attention = SpatialAttention()
+        self.block2_pool = nn.MaxPool2d(kernel_size=2, stride=2)
         
-        # Fourth residual block with down-sampling
-        self.res4_downsample = nn.Sequential(
-            nn.Conv2d(initial_filters*4, initial_filters*8, kernel_size=1, stride=2, bias=False),
-            nn.BatchNorm2d(initial_filters*8)
+        # Block 3: 128 -> 256 features
+        self.block3_conv = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=False)
         )
-        self.res4_conv1 = ConvBlock(initial_filters*4, initial_filters*8, stride=2, 
-                                    use_batchnorm=use_batchnorm, dropout_rate=0)
-        self.res4_conv2 = ConvBlock(initial_filters*8, initial_filters*8, 
-                                    use_batchnorm=use_batchnorm, dropout_rate=dropout_rate)
+        self.block3_attention = SpatialAttention()
+        self.block3_pool = nn.MaxPool2d(kernel_size=2, stride=2)
         
-        # Global Average Pooling
+        # Block 4: 256 -> 512 features
+        self.block4_conv = nn.Sequential(
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=False)
+        )
+        self.block4_attention = SpatialAttention()
+        self.block4_pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        
+        # Global average pooling
         self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
         
-        # Fully connected layer for classification
+        # Fully connected layers
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate),
-            nn.Linear(initial_filters*8, 512),
-            nn.ReLU(inplace=True),
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=False),
             nn.Dropout(dropout_rate),
-            nn.Linear(512, num_classes)
+            nn.Linear(256, num_classes)
         )
         
         # Initialize weights
         self._initialize_weights()
-        
+    
     def _initialize_weights(self):
         """Initialize model weights using Kaiming initialization"""
         for m in self.modules():
@@ -208,37 +208,25 @@ class CustomCNNWithResiduals(nn.Module):
                 nn.init.constant_(m.bias, 0)
     
     def forward(self, x):
-        # Entry block
-        x = self.conv1(x)
-        x = self.pool1(x)
+        # Block 1
+        x = self.block1_conv(x)
+        x = self.block1_attention(x) * x  # Apply attention
+        x = self.block1_pool(x)
         
-        # First residual block
-        identity = x
-        x = self.res1_conv1(x)
-        x = self.res1_conv2(x)
-        x += identity
-        x = F.relu(x)
+        # Block 2
+        x = self.block2_conv(x)
+        x = self.block2_attention(x) * x  # Apply attention
+        x = self.block2_pool(x)
         
-        # Second residual block
-        identity = self.res2_downsample(x)
-        x = self.res2_conv1(x)
-        x = self.res2_conv2(x)
-        x += identity
-        x = F.relu(x)
+        # Block 3
+        x = self.block3_conv(x)
+        x = self.block3_attention(x) * x  # Apply attention
+        x = self.block3_pool(x)
         
-        # Third residual block
-        identity = self.res3_downsample(x)
-        x = self.res3_conv1(x)
-        x = self.res3_conv2(x)
-        x += identity
-        x = F.relu(x)
-        
-        # Fourth residual block
-        identity = self.res4_downsample(x)
-        x = self.res4_conv1(x)
-        x = self.res4_conv2(x)
-        x += identity
-        x = F.relu(x)
+        # Block 4
+        x = self.block4_conv(x)
+        x = self.block4_attention(x) * x  # Apply attention
+        x = self.block4_pool(x)
         
         # Global pooling
         x = self.global_pool(x)
@@ -250,66 +238,80 @@ class CustomCNNWithResiduals(nn.Module):
         return x
 
 
-def create_custom_cnn(model_type='standard', num_classes=7, initial_filters=32, 
-                     dropout_rate=0.3, use_batchnorm=True):
+class SpatialAttention(nn.Module):
     """
-    Factory function to create a custom CNN model
+    Spatial Attention Module for focusing on relevant image regions.
+    """
+    def __init__(self, kernel_size=7):
+        super(SpatialAttention, self).__init__()
+        
+        assert kernel_size in (3, 7), "Kernel size must be 3 or 7"
+        padding = 3 if kernel_size == 7 else 1
+        
+        # Spatial attention uses max and avg pooling along channel dimension,
+        # then combines them with a convolution to get an attention map
+        self.conv = nn.Conv2d(2, 1, kernel_size=kernel_size, padding=padding, bias=False)
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, x):
+        # Get max and mean values along channel dimension
+        max_pool = torch.max(x, dim=1, keepdim=True)[0]
+        avg_pool = torch.mean(x, dim=1, keepdim=True)
+        
+        # Concatenate along channel dimension
+        pooled = torch.cat([max_pool, avg_pool], dim=1)
+        
+        # Conv and sigmoid to get attention weights
+        attention = self.conv(pooled)
+        attention = self.sigmoid(attention)
+        
+        return attention
+
+
+def create_custom_model(model_type='standard', num_classes=7, dropout_rate=0.5):
+    """
+    Factory function to create a TinyVGG model
     
     Args:
-        model_type: 'standard' or 'residual' to choose model architecture
+        model_type: 'standard' or 'attention' to choose model architecture
         num_classes: Number of output classes
-        initial_filters: Number of filters in the first conv layer
         dropout_rate: Dropout rate for regularization
-        use_batchnorm: Whether to use batch normalization
         
     Returns:
         A PyTorch model
     """
     if model_type == 'standard':
-        return CustomCNN(
+        return TinyVGG(
             num_classes=num_classes,
-            initial_filters=initial_filters,
-            dropout_rate=dropout_rate,
-            use_batchnorm=use_batchnorm
+            dropout_rate=dropout_rate
         )
-    elif model_type == 'residual':
-        return CustomCNNWithResiduals(
+    elif model_type == 'attention':
+        return TinyVGGWithAttention(
             num_classes=num_classes,
-            initial_filters=initial_filters,
-            dropout_rate=dropout_rate,
-            use_batchnorm=use_batchnorm
+            dropout_rate=dropout_rate
         )
     else:
-        raise ValueError(f"Unknown model type: {model_type}. Choose 'standard' or 'residual'.")
+        raise ValueError(f"Unknown model type: {model_type}. Choose 'standard' or 'attention'.")
 
 
 if __name__ == "__main__":
-    # Example usage
-    
-    # Create a standard custom CNN
-    cnn_model = create_custom_cnn('standard', num_classes=7, initial_filters=32)
-    
-    # Print model summary
-    print(cnn_model)
+    # Test the model
+    model = create_custom_model('standard', num_classes=7)
+    print(model)
     
     # Test with a sample input
     sample_input = torch.randn(2, 3, 224, 224)  # batch_size, channels, height, width
-    output = cnn_model(sample_input)
-    print(f"Output shape: {output.shape}")  # Should be [2, 7]
-    
-    # Create a custom CNN with residual connections
-    res_model = create_custom_cnn('residual', num_classes=7, initial_filters=32)
-    
-    # Print model summary
-    print(res_model)
-    
-    # Test with a sample input
-    output = res_model(sample_input)
+    output = model(sample_input)
     print(f"Output shape: {output.shape}")  # Should be [2, 7]
     
     # Calculate number of parameters
     def count_parameters(model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
     
-    print(f"Standard CNN parameters: {count_parameters(cnn_model):,}")
-    print(f"Residual CNN parameters: {count_parameters(res_model):,}")
+    print(f"Number of parameters: {count_parameters(model):,}")
+    
+    # Test attention model
+    attention_model = create_custom_model('attention', num_classes=7)
+    attention_output = attention_model(sample_input)
+    print(f"Attention model output shape: {attention_output.shape}")  # Should be [2, 7]
+    print(f"Attention model parameters: {count_parameters(attention_model):,}")

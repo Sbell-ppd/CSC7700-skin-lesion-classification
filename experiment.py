@@ -5,7 +5,7 @@ from pathlib import Path
 from tqdm import tqdm
 import numpy as np
 from dataset import create_dataloaders, display_dataset_stats
-from custom_model import create_custom_cnn
+from custom_model import create_custom_model
 from visualization import plot_training_curves
 
 from model import create_model
@@ -109,21 +109,21 @@ def train_and_evaluate(train_loader, val_loader, test_loader, class_weights=None
 
 
 def train_custom_model(data_path, image_path, model_type='standard', 
-                      initial_filters=32, dropout_rate=0.3, 
-                      batch_size=32, num_epochs=50, learning_rate=0.001, 
-                      experiment_name='custom_cnn_experiment'):
+                      dropout_rate=0.5, batch_size=32, num_epochs=50, 
+                      learning_rate=0.001, weight_decay=1e-5,
+                      experiment_name='tinyvgg_experiment'):
     """
-    Train and evaluate a custom CNN model
+    Train and evaluate a TinyVGG model
     
     Args:
         data_path: Path to the data directory
         image_path: Path to the image directory
-        model_type: 'standard' or 'residual'
-        initial_filters: Number of filters in the first conv layer
+        model_type: 'standard' or 'attention'
         dropout_rate: Dropout rate for regularization
         batch_size: Batch size for training
         num_epochs: Number of training epochs
         learning_rate: Initial learning rate
+        weight_decay: L2 regularization parameter
         experiment_name: Name for this experiment
     
     Returns:
@@ -140,7 +140,7 @@ def train_custom_model(data_path, image_path, model_type='standard',
     results_dir.mkdir(parents=True, exist_ok=True)
     
     # Set device
-    device = get_device()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
     # Create dataloaders
@@ -156,20 +156,25 @@ def train_custom_model(data_path, image_path, model_type='standard',
     display_dataset_stats(train_loader.dataset, val_loader.dataset, test_loader.dataset)
     
     # Create model
-    print(f"Creating custom CNN model (type: {model_type})...")
-    model = create_custom_cnn(
+    print(f"Creating TinyVGG model (type: {model_type})...")
+    model = create_custom_model(
         model_type=model_type, 
         num_classes=7, 
-        initial_filters=initial_filters, 
         dropout_rate=dropout_rate
     )
     model = model.to(device)
     
+    # Print model summary and parameter count
+    def count_parameters(model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
+    print(f"TinyVGG model created with {count_parameters(model):,} parameters")
+    
     # Define loss function with class weights
     criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
     
-    # Define optimizer
-    optimizer = Adam(model.parameters(), lr=learning_rate)
+    # Define optimizer with weight decay for regularization
+    optimizer = Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     
     # Define learning rate scheduler
     scheduler = lr_scheduler.ReduceLROnPlateau(
@@ -354,14 +359,21 @@ def train_custom_model(data_path, image_path, model_type='standard',
         output_path=results_dir / "roc_curves.png"
     )
     
-    # Save final model
+    # Save final model with all necessary information
+    class_mapping = {
+        0: 'akiec', 1: 'bcc', 2: 'bkl', 3: 'df', 4: 'mel', 5: 'nv', 6: 'vasc'
+    }
+    
     torch.save({
         'model_state_dict': model.state_dict(),
         'model_type': model_type,
-        'initial_filters': initial_filters,
         'dropout_rate': dropout_rate,
-        'test_acc': test_acc.item()
+        'test_acc': test_acc.item(),
+        'class_mapping': class_mapping,
+        'class_names': class_names
     }, results_dir / "final_model.pth")
+    
+    print(f"Model saved to {results_dir / 'final_model.pth'}")
     
     return model, test_acc.item(), history
 

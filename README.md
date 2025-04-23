@@ -48,22 +48,23 @@ $ jupyter notebook
 ### Custom models
 
 ```shell
-# Custom models - standard, residual
-$ python main.py --data_path /path/to/data --image_path /path/to/images --model_type residual --epochs 50
+# Custom models - standard, attention
+$ python main.py --data_path /path/to/data --image_path /path/to/images --model_type standard --epochs 50
 
 # example usage
-$ python main.py --data_path="data" --image_path="data/ISIC2018_Task3_Training_Input" --model_type standard
+$ python main.py --data_path="data" --image_path="data/ISIC2018_Task3_Training_Input" --model_type standard --experiment_name custom-exp1
 ```
 
 #### Command-line Arguments
 - `--data_path`: Path to the data directory containing metadata
 - `--image_path`: Path to the directory containing images
-- `--model_type`: Choose 'standard' or 'residual'
+- `--model_type`: Choose 'standard' or 'attention'
 - `--initial_filters`: Number of filters in first layer (default: 32)
-- `--dropout_rate`: Dropout rate for regularization (default: 0.3)
+- `--dropout_rate`: Dropout rate for regularization (default: 0.5)
 - `--batch_size`: Batch size for training (default: 32)
 - `--epochs`: Number of training epochs (default: 25)
-- `--lr`: Learning rate (default: 0.0001)
+- `--lr`: Learning rate (default: 0.001)
+- `--weight_decay`: Weight decay (default: 1e-5)
 - `--experiment_name`: Name for the experiment (default: experiment1)
 
 
