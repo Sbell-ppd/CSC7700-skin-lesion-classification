@@ -5,9 +5,10 @@
 ```
 project_root/
 ├── checkpoints/                        # Saved progress of our training and learned model parameters
-├── custom_cnn.py                       # Custom models architecture
 ├── data/                               # Downloaded image dataset
 ├── results/                            # Results are saved here
+├── app.py                              # Code for streamlit app deployment
+├── custom_cnn.py                       # Custom models architecture
 ├── dataset.py                          # Dataset loading/transformation into tensors
 ├── data_preprocessing.ipynb            # Notebok for processing data
 ├── download_data.py                    # Script for downloading data
