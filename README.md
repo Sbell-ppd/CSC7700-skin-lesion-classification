@@ -1,4 +1,4 @@
-# CSC-7333-Skin-Cancer-Classification
+# CSC-7700-Skin-lesion-Classification
 
 ## Project Structure
 
@@ -25,8 +25,8 @@ project_root/
 
 ```shell
 # clone repo
-$ git clone https://github.com/Fakorede/CSC-7333-Skin-Cancer-Classification.git
-$ cd CSC-7333-Skin-Cancer-Classification
+$ git clone https://github.com/Sbell-ppd/CSC7700-skin-lesion-classification.git
+$ cd CSC7700-skin-lesion-classification
 
 # create environment
 $ conda create -n skin-env python=3.10 -y
